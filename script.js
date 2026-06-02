@@ -23,9 +23,7 @@ function pintaLista() {
     const sumaGeneral = datosUE.reduce((suma, p) => suma + p.poblacion_nacional, 0);
     const mediaPoblacion = sumaGeneral / datosUE.length;
 
-
     lista = aplicarFiltros(lista);
-
 
     pintarTabla(lista, mediaPoblacion, sumaGeneral);
     pintarInfo(lista);
