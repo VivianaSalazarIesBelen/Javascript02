@@ -1,83 +1,107 @@
 import { datosUE } from "./uecountries.js";
 
-// Estado global para recordar las selecciones
-let idiomaSeleccionado = "todos";
+
+let idiomaSeleccionado = "ninguno";
 let soloOficiales = false;
 
-// Clases de Bootstrap para pintar los botones en horizontal con bordes
 const ESTILO_BOTON = "d-inline-flex align-items-center gap-1 border border-secondary rounded px-2 py-1 mb-1 me-1";
 
 // Al cargar la página
 document.addEventListener("DOMContentLoaded", () => {
     generarIdiomas();
     configurarFiltros();
-    render();
+    pintaLista();
 });
 
-// Motor que redibuja la interfaz
-function render() {
+
+function pintaLista() {
     let lista = [...datosUE];
 
-    // Orden siempre descendente por población
+
     lista.sort((a, b) => b.poblacion_nacional - a.poblacion_nacional);
 
-    // Pasamos los datos por el embudo de filtros
+    const sumaGeneral = datosUE.reduce((suma, p) => suma + p.poblacion_nacional, 0);
+    const mediaPoblacion = sumaGeneral / datosUE.length;
+
+
     lista = aplicarFiltros(lista);
 
-    // Pintamos los elementos resultantes en el HTML
-    pintarTabla(lista);
+
+    pintarTabla(lista, mediaPoblacion, sumaGeneral);
     pintarInfo(lista);
 }
 
-// Aplica las condiciones de filtrado
+
 function aplicarFiltros(lista) {
-    if (idiomaSeleccionado === "todos") return lista;
+    if (idiomaSeleccionado === "ninguno") return lista;
 
     return lista.filter(pais => {
-        const oficial = pais.idiomas.oficial?.toLowerCase() || "";
-        const otros = pais.idiomas.otros_idiomas?.toLowerCase() || "";
+        const oficial = pais.idiomas && pais.idiomas.oficial ? pais.idiomas.oficial.toLowerCase() : "";
+        const otros = pais.idiomas && pais.idiomas.otros_idiomas ? pais.idiomas.otros_idiomas.toLowerCase() : "";
         const idioma = idiomaSeleccionado.toLowerCase();
 
-        // Convertimos los strings separados por comas en arrays limpios
+        // Limpiamos los strings de idiomas separados por comas
         const matchOficial = oficial.split(",").map(i => i.trim()).includes(idioma);
         const matchOtros = otros.split(",").map(i => i.trim()).includes(idioma);
 
         if (soloOficiales) {
-            return matchOficial; // Si el checkbox está activo, solo cuenta si es oficial
+            return matchOficial;
         }
-        return matchOficial || matchOtros; // Si no, cuenta si es oficial u otros
+        return matchOficial || matchOtros;
     });
 }
 
-// Genera las filas de la tabla de países
-function pintarTabla(lista) {
-    const contenedor = document.getElementById("tabla-paises");
 
-    contenedor.innerHTML = lista.map(p => {
+
+function pintarTabla(lista, mediaPoblacion, sumaGeneral) {
+    const contenedorTabla = document.getElementById("tabla");
+
+
+    let tablaHTML = `
+        <thead class="table">
+            <tr>
+                <th>País</th>
+                <th>Capital</th>
+               <th>Población <div class="small fw-normal text-muted">(${sumaGeneral.toLocaleString("es-ES")} hab.)</div></th>
+                <th>Fecha Adhesión</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-paises">
+    `;
+
+
+    tablaHTML += lista.map(p => {
         const esMonarquia = p.regimen_politico?.tipo?.toLowerCase()?.includes("monarquía");
         const nombrePais = esMonarquia ? `${p.pais} 👑` : p.pais;
         const fecha = new Date(p.fecha_adhesion).toLocaleDateString("es-ES");
 
+
+        const claseResaltado = p.poblacion_nacional > mediaPoblacion ? 'class="text-success fw-bold "' : '';
+
         return `
             <tr>
-                <td>${nombrePais}</td>
+                <td ${claseResaltado}>${nombrePais}</td>
                 <td>${p.capital}</td>
                 <td>${p.poblacion_nacional.toLocaleString("es-ES")}</td>
                 <td>${fecha}</td>
             </tr>
         `;
     }).join("");
+
+    tablaHTML += `</tbody>`;
+
+    contenedorTabla.innerHTML = tablaHTML;
 }
 
-// Recolecta los idiomas únicos y crea los botones de radio horizontales
+// Genera dinámicamente los botones de idiomas en horizontal
 function generarIdiomas() {
     const set = new Set();
 
     datosUE.forEach(p => {
-        if (p.idiomas.oficial) {
+        if (p.idiomas && p.idiomas.oficial) {
             p.idiomas.oficial.split(",").forEach(i => set.add(i.trim().toLowerCase()));
         }
-        if (p.idiomas.otros_idiomas) {
+        if (p.idiomas && p.idiomas.otros_idiomas) {
             p.idiomas.otros_idiomas.split(",").forEach(i => set.add(i.trim().toLowerCase()));
         }
     });
@@ -85,14 +109,12 @@ function generarIdiomas() {
     const idiomas = [...set].filter(i => i && i !== "null").sort();
     const cont = document.getElementById("radios-idiomas");
 
-    // Primer botón horizontal por defecto: todos
     let htmlContent = `
         <div class="${ESTILO_BOTON}">
-            <input type="radio" name="idioma" id="lang-todos" value="todos" checked>
-            <label for="lang-todos">todos</label>
+            <input type="radio" name="idioma" id="lang-ninguno" value="ninguno" checked>
+            <label for="lang-ninguno">Ninguno</label>
         </div>
     `;
-
 
     idiomas.forEach((i, index) => {
         htmlContent += `
@@ -106,31 +128,30 @@ function generarIdiomas() {
     cont.innerHTML = htmlContent;
 }
 
-// Configura los escuchadores de eventos
+
 function configurarFiltros() {
-    // Escucha el cambio del CHECKBOX
     document.getElementById("solo-oficiales").addEventListener("change", (e) => {
         soloOficiales = e.target.checked;
-        render();
+        pintaLista();
     });
 
-    // Escucha el cambio de los RADIOS horizontales
     document.getElementById("radios-idiomas").addEventListener("change", (e) => {
         if (e.target.name === "idioma") {
             idiomaSeleccionado = e.target.value;
-            render();
+            pintaLista();
         }
     });
 }
 
-// Imprime el texto de control inferior
+
 function pintarInfo(lista) {
     const cont = document.getElementById("info-filtro");
 
-    if (idiomaSeleccionado === "todos") {
-        cont.innerHTML = `Se muestran ${lista.length} países de la UE`;
+    if (idiomaSeleccionado === "ninguno") {
+
+        cont.innerHTML = `<div>Se muestran los ${lista.length} países de la UE</div>`;
     } else {
-        const tipo = soloOficiales ? "oficial" : "oficial u otros";
-        cont.innerHTML = `Filtrado por: "${idiomaSeleccionado}" (${tipo}) (${lista.length} de ${datosUE.length})`;
+        const tipo = soloOficiales ? "oficial" : "oficial/no oficial";
+        cont.innerHTML = `<div>Filtrado por: "${idiomaSeleccionado}" (${tipo}) (${lista.length} de ${datosUE.length})</div>`;
     }
 }
