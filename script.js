@@ -93,7 +93,7 @@ function generarIdiomas() {
         </div>
     `;
 
-    // Añadimos el resto de idiomas con la clase de borde de tu compañero
+
     idiomas.forEach((i, index) => {
         htmlContent += `
             <div class="${ESTILO_BOTON}">
